@@ -1,21 +1,14 @@
 import React from 'react';
-import { ChakraProvider, Box, VStack, Grid, theme } from '@chakra-ui/react';
-import { ColorModeSwitcher } from './ColorModeSwitcher';
-import CryptoTracker from './components/CryptoTracker';
-import TopRecommendations from './components/TopRecommendations';
+import { ChakraProvider, theme } from '@chakra-ui/react';
+import UltraAdvancedCryptoTrading from './components/UltraAdvancedCryptoTrading';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
     <ChakraProvider theme={theme}>
-      <Box textAlign="center" fontSize="xl">
-        <Grid minH="100vh" p={3}>
-          <ColorModeSwitcher justifySelf="flex-end" />
-          <VStack spacing={8}>
-            <TopRecommendations />
-            <CryptoTracker />
-          </VStack>
-        </Grid>
-      </Box>
+      <ErrorBoundary>
+        <UltraAdvancedCryptoTrading />
+      </ErrorBoundary>
     </ChakraProvider>
   );
 }

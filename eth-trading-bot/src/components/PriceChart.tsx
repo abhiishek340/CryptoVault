@@ -1,80 +1,67 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Line } from 'react-chartjs-2';
-import { Box, Spinner, Text } from '@chakra-ui/react';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import React from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ChartData,
+  ChartOptions
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
-interface HistoricalData {
-  priceUsd: string;
-  time: number;
+interface PriceChartProps {
+  data: number[];
+  type: 'line' | 'bar';
 }
 
-const PriceChart: React.FC = () => {
-  const [chartData, setChartData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const PriceChart: React.FC<PriceChartProps> = ({ data, type }) => {
+  const labels = data.map((_, index) => index.toString());
 
-  useEffect(() => {
-    const fetchHistoricalData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await axios.get<HistoricalData[]>('http://localhost:3001/api/historical-data');
-        const data = response.data;
+  const chartData: ChartData<'line' | 'bar'> = {
+    labels,
+    datasets: [
+      {
+        label: 'Price',
+        data: data,
+        borderColor: 'rgb(75, 192, 192)',
+        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+      },
+    ],
+  };
 
-        if (!Array.isArray(data) || data.length === 0) {
-          setError('No historical data available');
-          return;
-        }
+  const options: ChartOptions<'line' | 'bar'> = {
+    responsive: true,
+    scales: {
+      x: {
+        type: 'category',
+      },
+      y: {
+        type: 'linear',
+      },
+    },
+  };
 
-        const labels = data.map((item: HistoricalData) => new Date(item.time).toLocaleDateString());
-        const prices = data.map((item: HistoricalData) => parseFloat(item.priceUsd));
-
-        setChartData({
-          labels,
-          datasets: [
-            {
-              label: 'Coin Price',
-              data: prices,
-              borderColor: 'rgb(75, 192, 192)',
-              tension: 0.1,
-            },
-          ],
-        });
-      } catch (error) {
-        console.error('Error fetching historical data:', error);
-        setError('Failed to fetch historical data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchHistoricalData();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="300px">
-        <Spinner size="xl" />
-      </Box>
-    );
+  if (type === 'line') {
+    return <Line data={chartData as ChartData<'line'>} options={options as ChartOptions<'line'>} />;
+  } else {
+    return <Bar data={chartData as ChartData<'bar'>} options={options as ChartOptions<'bar'>} />;
   }
-
-  if (error) {
-    return (
-      <Box p={4}>
-        <Text color="red.500">{error}</Text>
-      </Box>
-    );
-  }
-
-  return (
-    <Box>
-      {chartData && <Line data={chartData} />}
-    </Box>
-  );
 };
 
 export default PriceChart;
