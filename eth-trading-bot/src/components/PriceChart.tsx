@@ -13,6 +13,7 @@ import {
   ChartOptions
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
+import zoomPlugin from 'chartjs-plugin-zoom';
 
 ChartJS.register(
   CategoryScale,
@@ -22,7 +23,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  zoomPlugin
 );
 
 interface PriceChartProps {
@@ -33,7 +35,7 @@ interface PriceChartProps {
 const PriceChart: React.FC<PriceChartProps> = ({ data, type }) => {
   const labels = data.map((_, index) => index.toString());
 
-  const chartData: ChartData<'line' | 'bar'> = {
+  const baseChartData = {
     labels,
     datasets: [
       {
@@ -55,12 +57,35 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, type }) => {
         type: 'linear',
       },
     },
+    plugins: {
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy' as const,
+        },
+        pan: {
+          enabled: true,
+          mode: 'xy' as const,
+        },
+      },
+    },
   };
 
   if (type === 'line') {
-    return <Line data={chartData as ChartData<'line'>} options={options as ChartOptions<'line'>} />;
+    const lineChartData: ChartData<'line'> = baseChartData;
+    return <Line data={lineChartData} options={options as ChartOptions<'line'>} />;
   } else {
-    return <Bar data={chartData as ChartData<'bar'>} options={options as ChartOptions<'bar'>} />;
+    const barChartData: ChartData<'bar'> = baseChartData;
+    return <Bar data={barChartData} options={options as ChartOptions<'bar'>} />;
   }
 };
 

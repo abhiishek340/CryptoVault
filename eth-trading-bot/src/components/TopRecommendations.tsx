@@ -65,6 +65,7 @@ const TopRecommendations: React.FC = () => {
   const [chartData, setChartData] = useState<any>(null);
   const [showBuyRecommendations, setShowBuyRecommendations] = useState(true);
   const [isChartLoading, setIsChartLoading] = useState(false);
+  const [comparisonCoins, setComparisonCoins] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
@@ -140,6 +141,16 @@ const TopRecommendations: React.FC = () => {
     }
   };
 
+  const addToComparison = (coinId: string) => {
+    if (!comparisonCoins.includes(coinId)) {
+      setComparisonCoins([...comparisonCoins, coinId]);
+    }
+  };
+
+  const removeFromComparison = (coinId: string) => {
+    setComparisonCoins(comparisonCoins.filter(id => id !== coinId));
+  };
+
   if (isLoading) {
     return <Spinner size="xl" />;
   }
@@ -210,6 +221,27 @@ const TopRecommendations: React.FC = () => {
             <Text>No chart data available</Text>
           )}
           <Button mt={4} onClick={() => setSelectedCoin(null)}>Close Chart</Button>
+        </Box>
+      )}
+
+      {comparisonCoins.length > 0 && (
+        <Box mt={8}>
+          <Heading as="h3" size="md" mb={4}>Comparison</Heading>
+          <SimpleGrid columns={comparisonCoins.length} spacing={4}>
+            {comparisonCoins.map(coinId => {
+              const coin = displayedRecommendations.find(c => c.id === coinId);
+              return coin ? (
+                <Box key={coin.id} p={4} borderWidth={1} borderRadius="lg">
+                  <Text fontWeight="bold">{coin.name}</Text>
+                  <Text>${coin.current_price.toFixed(2)}</Text>
+                  <Text color={coin.price_change_percentage_24h >= 0 ? 'green.500' : 'red.500'}>
+                    {coin.price_change_percentage_24h.toFixed(2)}%
+                  </Text>
+                  <Button size="sm" onClick={() => removeFromComparison(coin.id)}>Remove</Button>
+                </Box>
+              ) : null;
+            })}
+          </SimpleGrid>
         </Box>
       )}
     </Box>
