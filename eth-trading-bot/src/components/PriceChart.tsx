@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Heading } from '@chakra-ui/react';
-import { Line } from 'react-chartjs-2';
 import axios from 'axios';
+import { Line } from 'react-chartjs-2';
+import { Box } from '@chakra-ui/react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -12,16 +12,18 @@ const PriceChart: React.FC = () => {
   useEffect(() => {
     const fetchHistoricalData = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/historical-data');
-        const data = response.data;
+        const response = await axios.get('http://localhost:3001/api/historical-data');
+        const prices = response.data.prices;
+
+        const labels = prices.map((price: [number, number]) => new Date(price[0]).toLocaleDateString());
+        const data = prices.map((price: [number, number]) => price[1]);
 
         setChartData({
-          labels: data.map((item: any) => new Date(item.timestamp).toLocaleDateString()),
+          labels,
           datasets: [
             {
               label: 'ETH Price',
-              data: data.map((item: any) => item.price),
-              fill: false,
+              data,
               borderColor: 'rgb(75, 192, 192)',
               tension: 0.1,
             },
@@ -36,13 +38,8 @@ const PriceChart: React.FC = () => {
   }, []);
 
   return (
-    <Box width="100%" maxWidth="800px">
-      <Heading as="h2" size="lg" mb={4}>ETH Price History</Heading>
-      {chartData ? (
-        <Line data={chartData} />
-      ) : (
-        <p>Loading chart data...</p>
-      )}
+    <Box>
+      {chartData && <Line data={chartData} />}
     </Box>
   );
 };
