@@ -23,6 +23,7 @@ interface Crypto {
   price_change_percentage_24h: number;
   sparkline_in_7d: { price: number[] };
   image: string;
+  recommendation: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
 }
 
 export default function UltraAdvancedCryptoTrading() {

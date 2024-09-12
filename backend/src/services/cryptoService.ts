@@ -51,15 +51,36 @@ class CryptoService {
         period: 20,
         stdDev: 2
       });
+
+      // Simple recommendation logic (you may want to make this more sophisticated)
+      let recommendation: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell' = 'Hold';
+      const lastRSI = rsi[rsi.length - 1];
+      const lastMACD = macd[macd.length - 1];
+
+      if (lastMACD && lastRSI !== undefined && 
+          typeof lastMACD.MACD === 'number' && 
+          typeof lastMACD.signal === 'number') {
+        if (lastRSI < 30 && lastMACD.MACD > lastMACD.signal) {
+          recommendation = 'Strong Buy';
+        } else if (lastRSI < 40 && lastMACD.MACD > lastMACD.signal) {
+          recommendation = 'Buy';
+        } else if (lastRSI > 70 && lastMACD.MACD < lastMACD.signal) {
+          recommendation = 'Strong Sell';
+        } else if (lastRSI > 60 && lastMACD.MACD < lastMACD.signal) {
+          recommendation = 'Sell';
+        }
+      }
+
       return {
         ...coin,
-        macd: macd[macd.length - 1].MACD,
-        signal: macd[macd.length - 1].signal,
-        histogram: macd[macd.length - 1].histogram,
-        rsi: rsi[rsi.length - 1],
-        upperBB: bb[bb.length - 1].upper,
-        middleBB: bb[bb.length - 1].middle,
-        lowerBB: bb[bb.length - 1].lower
+        macd: lastMACD?.MACD ?? null,
+        signal: lastMACD?.signal ?? null,
+        histogram: lastMACD?.histogram ?? null,
+        rsi: lastRSI ?? null,
+        upperBB: bb[bb.length - 1]?.upper ?? null,
+        middleBB: bb[bb.length - 1]?.middle ?? null,
+        lowerBB: bb[bb.length - 1]?.lower ?? null,
+        recommendation
       };
     }));
   }
