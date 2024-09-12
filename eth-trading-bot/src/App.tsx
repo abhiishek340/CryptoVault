@@ -1,9 +1,8 @@
 import React from 'react';
 import { ChakraProvider, Box, VStack, Grid, theme } from '@chakra-ui/react';
 import { ColorModeSwitcher } from './ColorModeSwitcher';
-import CurrentPrice from './components/CurrentPrice';
-import PriceChart from './components/PriceChart';
 import CryptoTracker from './components/CryptoTracker';
+import TopRecommendations from './components/TopRecommendations';
 
 function App() {
   return (
@@ -12,8 +11,7 @@ function App() {
         <Grid minH="100vh" p={3}>
           <ColorModeSwitcher justifySelf="flex-end" />
           <VStack spacing={8}>
-            <CurrentPrice />
-            <PriceChart />
+            <TopRecommendations />
             <CryptoTracker />
           </VStack>
         </Grid>
