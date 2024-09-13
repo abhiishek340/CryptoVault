@@ -94,10 +94,13 @@ app.get('/api/historical-data/:id', async (req: Request, res: Response) => {
 app.get('/api/news/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const news = await cryptoService.getNews(id);
+    console.log(`Fetching news for coin: ${id}`);
+    const news = await cryptoService.getNewsForCoin(id);
+    console.log(`News fetched successfully for ${id}:`, news);
     res.json(news);
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while fetching news' });
+    console.error('Error fetching news:', error);
+    res.status(500).json({ error: 'Failed to fetch news', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -151,13 +154,27 @@ app.get('/api/coin/:id', async (req: Request, res: Response) => {
     const historicalData = await cryptoService.getHistoricalData(coinId, timeframe as string, '1d');
     console.log('Historical data fetched successfully');
     
-    console.log('Coin data sample:', JSON.stringify(coinData).slice(0, 200) + '...');
-    console.log('Historical data sample:', JSON.stringify(historicalData.slice(0, 5)) + '...');
-    
+    console.log('Sending response');
     res.json({ coinData, historicalData });
   } catch (error) {
     console.error(`Error fetching data for coin ${req.params.id}:`, error);
     res.status(500).json({ error: 'Failed to fetch coin data', details: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
+// Add these new endpoints:
+
+app.get('/api/volume/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { days = '30' } = req.query;
+    console.log(`Fetching volume data for coin: ${id}, days: ${days}`);
+    const volumeData = await cryptoService.getVolumeData(id, Number(days));
+    console.log('Volume data fetched successfully:', volumeData.slice(0, 5));
+    res.json(volumeData);
+  } catch (error) {
+    console.error('Error fetching volume data:', error);
+    res.status(500).json({ error: 'Failed to fetch volume data' });
   }
 });
 

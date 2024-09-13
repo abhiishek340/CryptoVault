@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, Text, VStack, Heading, Spinner } from '@chakra-ui/react';
+import { Box, VStack, Text, Heading, Spinner, Link } from '@chakra-ui/react';
 
 interface NewsSentimentProps {
   coinId: string;
 }
 
+interface NewsItem {
+  title: string;
+  link: string;
+  sentiment: number;
+}
+
 const NewsSentiment: React.FC<NewsSentimentProps> = ({ coinId }) => {
-  const [news, setNews] = useState<any[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,10 +42,11 @@ const NewsSentiment: React.FC<NewsSentimentProps> = ({ coinId }) => {
       <VStack align="stretch" spacing={4}>
         {news.map((item, index) => (
           <Box key={index} p={4} borderWidth={1} borderRadius="md">
-            <Text fontWeight="bold">{item.title}</Text>
-            <Text mt={2}>{item.description}</Text>
-            <Text mt={2} color={item.sentiment === 'positive' ? 'green.500' : item.sentiment === 'negative' ? 'red.500' : 'gray.500'}>
-              Sentiment: {item.sentiment}
+            <Link href={item.link} isExternal>
+              <Text fontWeight="bold">{item.title}</Text>
+            </Link>
+            <Text mt={2} color={item.sentiment > 0 ? 'green.500' : item.sentiment < 0 ? 'red.500' : 'gray.500'}>
+              Sentiment: {item.sentiment > 0 ? 'Positive' : item.sentiment < 0 ? 'Negative' : 'Neutral'}
             </Text>
           </Box>
         ))}
