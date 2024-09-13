@@ -1,17 +1,16 @@
-import React from 'react'
-import { Box, Text } from "@chakra-ui/react"
+import React from 'react';
 
 interface VolumeAnalysisProps {
-  data: any[]
+  data: any[];
 }
 
 const VolumeAnalysis: React.FC<VolumeAnalysisProps> = ({ data }) => {
   return (
-    <Box>
-      <Text>Volume Analysis</Text>
-      {/* Implement volume analysis here */}
-    </Box>
-  )
-}
+    <div>
+      <h2>Volume Analysis</h2>
+      {/* Implement your volume analysis logic here */}
+    </div>
+  );
+};
 
-export default VolumeAnalysis
+export default VolumeAnalysis;

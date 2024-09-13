@@ -26,35 +26,78 @@ interface Crypto {
   recommendation: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
 }
 
-export default function UltraAdvancedCryptoTrading() {
-  const [cryptos, setCryptos] = useState<Crypto[]>([])
-  const [selectedCrypto, setSelectedCrypto] = useState<Crypto | null>(null)
-  const [initialInvestment, setInitialInvestment] = useState(10000)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+const UltraAdvancedCryptoTrading: React.FC = () => {
+  const [coins, setCoins] = useState<any[]>([]);
+  const [analyses, setAnalyses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCrypto, setSelectedCrypto] = useState<Crypto | null>(null);
+  const [initialInvestment, setInitialInvestment] = useState<number>(10000);
+  const [recommendations, setRecommendations] = useState<{ buyRecommendations: any[], sellRecommendations: any[] }>({
+    buyRecommendations: [],
+    sellRecommendations: []
+  });
 
-  const bgColor = useColorModeValue('gray.50', 'gray.900')
-  const cardBgColor = useColorModeValue('white', 'gray.800')
-  const borderColor = useColorModeValue('gray.200', 'gray.700')
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const cardBgColor = useColorModeValue('white', 'gray.800');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-        const result = await axios.get('http://localhost:3001/api/coins-with-analysis')
-        setCryptos(result.data.coins)
-      } catch (error) {
-        console.error('Error fetching crypto data:', error)
-        setError('Failed to fetch cryptocurrency data. Please try again later.')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+        const response = await fetch('http://localhost:3001/api/coins-with-analysis');
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('Failed to get reader from response');
+        }
 
-  if (isLoading) {
+        let partialData = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          partialData += new TextDecoder().decode(value);
+          
+          const lines = partialData.split('\n');
+          for (let i = 0; i < lines.length - 1; i++) {
+            try {
+              const parsedData = JSON.parse(lines[i]);
+              if (parsedData.coins) {
+                setCoins(parsedData.coins);
+                setLoading(false);
+              }
+              if (parsedData.analyses) {
+                setAnalyses(parsedData.analyses);
+              }
+            } catch (e) {
+              console.error('Error parsing JSON:', e);
+            }
+          }
+          partialData = lines[lines.length - 1];
+        }
+      } catch (error) {
+        console.error('Error fetching crypto data:', error);
+        setError('Failed to fetch crypto data. Please try again later.');
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        const response = await axios.get('http://localhost:3001/api/top-recommendations');
+        setRecommendations(response.data);
+      } catch (error) {
+        console.error('Error fetching recommendations:', error);
+      }
+    };
+
+    fetchRecommendations();
+  }, []);
+
+  if (loading) {
     return (
       <Box minHeight="100vh" display="flex" alignItems="center" justifyContent="center" bg={bgColor}>
         <Spinner size="xl" color="blue.500" thickness="4px" />
@@ -114,12 +157,16 @@ export default function UltraAdvancedCryptoTrading() {
           </SimpleGrid>
 
           <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
-            <Dashboard cryptos={cryptos} onSelectCrypto={setSelectedCrypto} />
-            <TopRecommendations />
+            <Dashboard cryptos={coins} onSelectCrypto={setSelectedCrypto} />
+            <TopRecommendations 
+              buyRecommendations={recommendations.buyRecommendations}
+              sellRecommendations={recommendations.sellRecommendations}
+              loading={loading}
+            />
           </SimpleGrid>
 
           <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
-            <Portfolio cryptos={cryptos} initialInvestment={initialInvestment} />
+            <Portfolio cryptos={coins} initialInvestment={initialInvestment} />
             <TradingSimulation />
           </SimpleGrid>
         </VStack>
@@ -127,3 +174,5 @@ export default function UltraAdvancedCryptoTrading() {
     </Box>
   )
 }
+
+export default UltraAdvancedCryptoTrading;

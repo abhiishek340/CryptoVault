@@ -1,31 +1,67 @@
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { MACD, RSI, BollingerBands } from 'technicalindicators';
+import { analyzeSentiment } from './sentimentAnalysis';
+import NodeCache from 'node-cache';
 
 class CryptoService {
   private readonly API_URL = 'https://api.coingecko.com/api/v3';
+  private lastRequestTime: number = 0;
+  private readonly MIN_REQUEST_INTERVAL = 10000; // 10 seconds between requests
+  private cache: NodeCache;
+
+  constructor() {
+    this.cache = new NodeCache({ stdTTL: 300 }); // Cache for 5 minutes
+  }
+
+  private async delayIfNeeded() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      const delay = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    this.lastRequestTime = Date.now();
+  }
+
+  private async apiRequest<T>(url: string, params: any = {}): Promise<T> {
+    const cacheKey = `${url}${JSON.stringify(params)}`;
+    const cachedData = this.cache.get<T>(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    await this.delayIfNeeded();
+    try {
+      const response: AxiosResponse<T> = await axios.get(url, { params });
+      this.cache.set(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        console.log('Rate limit reached. Waiting before retrying...');
+        await new Promise(resolve => setTimeout(resolve, 60000)); // Wait for 1 minute
+        return this.apiRequest<T>(url, params); // Retry the request
+      }
+      throw error;
+    }
+  }
 
   async getTopCoins(limit: number = 10) {
-    const response = await axios.get(`${this.API_URL}/coins/markets`, {
-      params: {
-        vs_currency: 'usd',
-        order: 'market_cap_desc',
-        per_page: limit,
-        page: 1,
-        sparkline: true
-      }
+    return this.apiRequest<any[]>(`${this.API_URL}/coins/markets`, {
+      vs_currency: 'usd',
+      order: 'market_cap_desc',
+      per_page: limit,
+      page: 1,
+      sparkline: true
     });
-    return response.data;
   }
 
   async getHistoricalData(id: string, timeframe: string, interval: string) {
     const days = timeframe === '1M' ? 30 : timeframe === '3M' ? 90 : 365;
-    const response = await axios.get(`${this.API_URL}/coins/${id}/ohlc`, {
-      params: {
-        vs_currency: 'usd',
-        days: days
-      }
+    const data = await this.apiRequest<number[][]>(`${this.API_URL}/coins/${id}/ohlc`, {
+      vs_currency: 'usd',
+      days: days
     });
-    return response.data.map((d: number[]) => ({
+    return data.map((d: number[]) => ({
       time: d[0],
       open: d[1],
       high: d[2],
@@ -34,54 +70,58 @@ class CryptoService {
     }));
   }
 
-  async getAnalysisForAllCoins(coins: any[]) {
+  async getAnalysisForAllCoins(coins: any[]): Promise<any[]> {
     return Promise.all(coins.map(async (coin) => {
-      const prices = coin.sparkline_in_7d.price;
-      const macd = MACD.calculate({
-        values: prices,
-        fastPeriod: 12,
-        slowPeriod: 26,
-        signalPeriod: 9,
-        SimpleMAOscillator: false,
-        SimpleMASignal: false
-      });
-      const rsi = RSI.calculate({ values: prices, period: 14 });
-      const bb = BollingerBands.calculate({
-        values: prices,
-        period: 20,
-        stdDev: 2
-      });
+      try {
+        const historicalData = await this.getHistoricalData(coin.id, '30d', '1d');
+        const prices = historicalData.map((data: any) => data.close);
+        
+        // Calculate RSI
+        const rsiPeriod = 14;
+        const rsi = RSI.calculate({ values: prices, period: rsiPeriod });
+        const latestRSI = rsi[rsi.length - 1];
 
-      // Simple recommendation logic (you may want to make this more sophisticated)
-      let recommendation: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell' = 'Hold';
-      const lastRSI = rsi[rsi.length - 1];
-      const lastMACD = macd[macd.length - 1];
+        // Calculate MACD
+        const macdInput = {
+          values: prices,
+          fastPeriod: 12,
+          slowPeriod: 26,
+          signalPeriod: 9,
+          SimpleMAOscillator: false,
+          SimpleMASignal: false
+        };
+        const macd = MACD.calculate(macdInput);
+        const latestMACD = macd[macd.length - 1];
 
-      if (lastMACD && lastRSI !== undefined && 
-          typeof lastMACD.MACD === 'number' && 
-          typeof lastMACD.signal === 'number') {
-        if (lastRSI < 30 && lastMACD.MACD > lastMACD.signal) {
-          recommendation = 'Strong Buy';
-        } else if (lastRSI < 40 && lastMACD.MACD > lastMACD.signal) {
-          recommendation = 'Buy';
-        } else if (lastRSI > 70 && lastMACD.MACD < lastMACD.signal) {
-          recommendation = 'Strong Sell';
-        } else if (lastRSI > 60 && lastMACD.MACD < lastMACD.signal) {
-          recommendation = 'Sell';
+        // Determine prediction based on technical indicators
+        let prediction = 'Hold';
+        if (latestRSI < 40 && latestMACD && latestMACD.histogram && latestMACD.histogram > 0) {
+          prediction = 'Buy';
+        } else if (latestRSI > 60 && latestMACD && latestMACD.histogram && latestMACD.histogram < 0) {
+          prediction = 'Sell';
         }
-      }
 
-      return {
-        ...coin,
-        macd: lastMACD?.MACD ?? null,
-        signal: lastMACD?.signal ?? null,
-        histogram: lastMACD?.histogram ?? null,
-        rsi: lastRSI ?? null,
-        upperBB: bb[bb.length - 1]?.upper ?? null,
-        middleBB: bb[bb.length - 1]?.middle ?? null,
-        lowerBB: bb[bb.length - 1]?.lower ?? null,
-        recommendation
-      };
+        // Calculate a simple score for sorting
+        const score = (70 - latestRSI) + ((latestMACD && latestMACD.histogram ? latestMACD.histogram : 0) * 100);
+
+        console.log(`Analysis for ${coin.id}:`, { rsi: latestRSI, macd: latestMACD, prediction, score });
+
+        return {
+          ...coin,
+          rsi: latestRSI,
+          macd: latestMACD ? latestMACD.MACD : null,
+          signal: latestMACD ? latestMACD.signal : null,
+          histogram: latestMACD ? latestMACD.histogram : null,
+          prediction,
+          score
+        };
+      } catch (error) {
+        console.error(`Error analyzing coin ${coin.id}:`, error);
+        return {
+          ...coin,
+          error: 'Failed to analyze'
+        };
+      }
     }));
   }
 
@@ -101,6 +141,27 @@ class CryptoService {
       finalPortfolioValue: finalValue,
       profit: finalValue - initialInvestment
     };
+  }
+
+  async getCoinData(id: string) {
+    const coinData = await this.apiRequest<any>(`${this.API_URL}/coins/${id}`);
+    const historicalData = await this.getHistoricalData(id, '30d', '1d');
+    const recommendation = this.generateRecommendation(historicalData);
+    return { coinData, historicalData, recommendation };
+  }
+
+  private generateRecommendation(historicalData: any[]): string {
+    // Implement your recommendation logic here
+    // This is a simplified example
+    const prices = historicalData.map(d => d.close);
+    const rsi = RSI.calculate({ values: prices, period: 14 });
+    const latestRSI = rsi[rsi.length - 1];
+
+    if (latestRSI < 30) return 'Strong Buy';
+    if (latestRSI < 40) return 'Buy';
+    if (latestRSI > 70) return 'Strong Sell';
+    if (latestRSI > 60) return 'Sell';
+    return 'Hold';
   }
 }
 
