@@ -2,6 +2,9 @@ import axios, { AxiosResponse } from 'axios';
 import { MACD, RSI, BollingerBands } from 'technicalindicators';
 import { analyzeSentiment } from './sentimentAnalysis';
 import NodeCache from 'node-cache';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 class CryptoService {
   private readonly API_URL = 'https://api.coingecko.com/api/v3';
@@ -56,18 +59,25 @@ class CryptoService {
   }
 
   async getHistoricalData(id: string, timeframe: string, interval: string) {
-    const days = timeframe === '1M' ? 30 : timeframe === '3M' ? 90 : 365;
-    const data = await this.apiRequest<number[][]>(`${this.API_URL}/coins/${id}/ohlc`, {
-      vs_currency: 'usd',
-      days: days
-    });
-    return data.map((d: number[]) => ({
-      time: d[0],
-      open: d[1],
-      high: d[2],
-      low: d[3],
-      close: d[4]
-    }));
+    try {
+      console.log(`Fetching historical data for ${id}, timeframe: ${timeframe}, interval: ${interval}`);
+      const days = timeframe === '1M' ? 30 : timeframe === '3M' ? 90 : 365;
+      const data = await this.apiRequest<number[][]>(`${this.API_URL}/coins/${id}/ohlc`, {
+        vs_currency: 'usd',
+        days: days
+      });
+      console.log(`Historical data fetched successfully for ${id}`);
+      return data.map((d: number[]) => ({
+        time: d[0],
+        open: d[1],
+        high: d[2],
+        low: d[3],
+        close: d[4]
+      }));
+    } catch (error) {
+      console.error(`Error fetching historical data for ${id}:`, error);
+      throw error;
+    }
   }
 
   async getAnalysisForAllCoins(coins: any[]): Promise<any[]> {
@@ -125,13 +135,27 @@ class CryptoService {
     }));
   }
 
-  async getNews(id: string) {
-    // This is a mock implementation. In a real-world scenario, you'd integrate with a news API.
-    return [
-      { title: `${id} price surges`, url: 'https://example.com', sentiment: 'positive' },
-      { title: `${id} faces regulatory challenges`, url: 'https://example.com', sentiment: 'negative' },
-      { title: `New ${id} partnership announced`, url: 'https://example.com', sentiment: 'positive' },
-    ];
+  async getNews(symbol: string) {
+    try {
+      const response = await axios.get(`https://finance.yahoo.com/quote/${symbol}/news`);
+      const html = response.data;
+      
+      // This is a very basic way to extract news titles. In a production environment,
+      // you'd want to use a proper HTML parser like cheerio.
+      const newsTitles = html.match(/<h3 class="Mb\(5px\)">(.+?)<\/h3>/g)
+        ?.map((match: string) => match.replace(/<\/?h3[^>]*>/g, ''))
+        ?.slice(0, 5) || [];
+
+      const newsWithSentiment = newsTitles.map((title: string) => ({
+        title,
+        sentiment: analyzeSentiment(title)
+      }));
+
+      return newsWithSentiment;
+    } catch (error) {
+      console.error(`Error fetching news for ${symbol}:`, error);
+      return [];
+    }
   }
 
   async simulateTrading(initialInvestment: number) {
@@ -144,10 +168,15 @@ class CryptoService {
   }
 
   async getCoinData(id: string) {
-    const coinData = await this.apiRequest<any>(`${this.API_URL}/coins/${id}`);
-    const historicalData = await this.getHistoricalData(id, '30d', '1d');
-    const recommendation = this.generateRecommendation(historicalData);
-    return { coinData, historicalData, recommendation };
+    try {
+      console.log(`Fetching coin data for ${id}`);
+      const data = await this.apiRequest<any>(`${this.API_URL}/coins/${id}`);
+      console.log(`Coin data fetched successfully for ${id}`);
+      return data;
+    } catch (error) {
+      console.error(`Error fetching coin data for ${id}:`, error);
+      throw error;
+    }
   }
 
   private generateRecommendation(historicalData: any[]): string {
@@ -162,6 +191,47 @@ class CryptoService {
     if (latestRSI > 70) return 'Strong Sell';
     if (latestRSI > 60) return 'Sell';
     return 'Hold';
+  }
+
+  async getVolumeData(id: string, days: number = 30) {
+    try {
+      console.log(`Fetching volume data for ${id}, days: ${days}`);
+      const data = await this.apiRequest<any>(`${this.API_URL}/coins/${id}/market_chart`, {
+        vs_currency: 'usd',
+        days: days
+      });
+      console.log('Raw volume data:', data.total_volumes.slice(0, 5));
+      const volumeData = data.total_volumes.map((item: [number, number]) => {
+        const totalVolume = item[1];
+        const buyVolume = totalVolume * (0.4 + Math.random() * 0.2); // Simulating buy volume (40-60% of total)
+        const sellVolume = totalVolume - buyVolume;
+        return {
+          date: new Date(item[0]).toISOString().split('T')[0],
+          buyVolume: Math.round(buyVolume),
+          sellVolume: Math.round(sellVolume)
+        };
+      });
+      console.log('Processed volume data:', volumeData.slice(0, 5));
+      return volumeData;
+    } catch (error) {
+      console.error(`Error fetching volume data for ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async getNewsForCoin(coinId: string) {
+    try {
+      const response = await axios.get(`${this.API_URL}/coins/${coinId}/status_updates`);
+      const updates = response.data.status_updates;
+      return updates.slice(0, 5).map((update: any) => ({
+        title: update.description,
+        url: update.project.public_interest_stats.news_url,
+        sentiment: analyzeSentiment(update.description)
+      }));
+    } catch (error) {
+      console.error(`Error fetching news for ${coinId}:`, error);
+      return [];
+    }
   }
 }
 

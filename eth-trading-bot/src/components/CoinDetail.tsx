@@ -39,7 +39,8 @@ const CoinDetail: React.FC<CoinDetailProps> = ({ crypto, onClose }) => {
         
         setCoinData(response.data.coinData);
         setHistoricalData(response.data.historicalData);
-        setRecommendation(response.data.recommendation || 'Hold'); // Set recommendation
+        setRecommendation(response.data.recommendation || 'Hold');
+        console.log('Data set successfully');
         setLoading(false);
       } catch (error) {
         console.error('Error fetching coin data:', error);
@@ -50,6 +51,8 @@ const CoinDetail: React.FC<CoinDetailProps> = ({ crypto, onClose }) => {
 
     fetchCoinData();
   }, [crypto.id]);
+
+  console.log('Rendering CoinDetail. Loading:', loading, 'Error:', error);
 
   const getRecommendationColor = (rec: string) => {
     switch (rec) {
@@ -114,7 +117,7 @@ const CoinDetail: React.FC<CoinDetailProps> = ({ crypto, onClose }) => {
             <NewsSentiment coinId={crypto.id} />
           </TabPanel>
           <TabPanel>
-            <VolumeAnalysis data={historicalData} />
+            <VolumeAnalysis coinId={crypto.id} />
           </TabPanel>
         </TabPanels>
       </Tabs>
