@@ -20,7 +20,7 @@ const NewsFeeds: React.FC = () => {
         setIsLoading(true);
         setError(null);
         // Using the free Crypto Panic API for news
-        const response = await axios.get('https://cryptopanic.com/api/v1/posts/?auth_token=YOUR_API_KEY&kind=news');
+        const response = await axios.get(`https://cryptopanic.com/api/v1/posts/?auth_token=${process.env.REACT_APP_CRYPTOPANIC_TOKEN}&kind=news`);
         setNews(response.data.results);
       } catch (error) {
         console.error('Error fetching news:', error);
